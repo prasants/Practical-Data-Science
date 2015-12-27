@@ -1,0 +1,102 @@
+---
+title: "Practical Machine Learning - Project"
+author: "Prasant Sudhakaran"
+date: "December 28, 2015"
+output:
+  pdf_document: default
+  html_document:
+    toc: yes
+---
+
+Background
+
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. In this project, your goal will be to use data from accelerometers on the belt, forearm, arm, and dumbell of 6 participants. They were asked to perform barbell lifts correctly and incorrectly in 5 different ways. More information is available from the website here: http://groupware.les.inf.puc-rio.br/har (see the section on the Weight Lifting Exercise Dataset). 
+
+```{r}
+setwd("~/Google Drive/02. Academic/05. Learning/Coursera/06. Practical Machine Learning/01. Project/Data")
+library(caret)
+train <- read.csv("pml-training.csv")
+test <- read.csv("pml-testing.csv")
+set.seed(1337)
+
+head(train)
+str(train)
+names(train)
+
+inTrain <- createDataPartition(y=train$classe, 
+                               p=0.75, 
+                               list=FALSE)
+train1 <- train[inTrain, ]
+train2 <- train[-inTrain, ]
+
+```
+```{r}
+### Check variance, remove ones with var tending to zero
+nzero <- nearZeroVar(train1)
+train1 <- train1[, -nzero]
+train2 <- train2[, -nzero]
+
+### Which variables have a large proportion of missing values?
+mNAs <- sapply(train1, function(x) mean(is.na(x))) > 0.95
+train1 <- train1[, mNAs==F]
+train2 <- train2[, mNAs==F]
+
+### Remove variables with no predictive power (For example, user_name, raw_timestamp_part_1, raw_timestamp_part_2 etc)
+train1 <- train1[, -(1:5)]
+train2 <- train2[, -(1:5)]
+
+### Use 10-fold Cross Validation
+my_Control <- trainControl(method="cv", number=10, verboseIter=F)
+
+### Model Fit
+fit <- train(classe ~ ., 
+             data=train1, 
+             method="rf", 
+             trControl=my_Control)
+fit$finalModel        
+
+### predict in second set
+prediction <- predict(fit, newdata=train2)
+
+### estimate out of sample error
+confusionMatrix(train2$classe, prediction)
+
+### Check variance, remove ones with var tending to zero
+nzero <- nearZeroVar(train)
+train <- train[, -nzero]
+test <- test[, -nzero]
+
+###  Which variables have a large proportion of missing values?
+mNAs <- sapply(ptrain, function(x) mean(is.na(x))) > 0.95
+train <- train[, mNAs ==FALSE]
+test <- test[, mNAs ==FALSE]
+
+### Remove variables with no predictive power (For example, user_name, raw_timestamp_part_1, raw_timestamp_part_2 etc)
+train <- train[, -(1:5)]
+test <- test[, -(1:5)]
+
+### Use full training set
+my_Control <- trainControl(method="cv", number=10, verboseIter=F)
+fit <- train(classe ~ ., data=train, method="rf", trControl=my_Control)
+
+### Prediction on Test Set
+prediction <- predict(fit, newdata=test)
+
+
+### Convert to Char Vector
+prediction <- as.character(prediction)
+
+### Write to file
+file_write <- function(x) {
+  n <- length(x)
+  for(i in 1:n) {
+    filename <- paste0("id-", i, ".txt")
+    write.table(x[i], file=filename, quote=F, row.names=F, col.names=F)
+  }
+}
+
+file_write(prediction)
+
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
